@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Historial de precios de motocicletas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+:root {
+  --font-anthropic-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-anthropic-serif: Georgia, "Times New Roman", serif;
+  --color-fg: #1f1e1c; --color-fg-muted: #6b6a66; --color-bg: #faf9f6; --color-panel: #ffffff;
+  --color-border-line: #e5e2db; --color-ok: #2f7d4f; --color-warn: #b4561f; --color-bad: #c0392b;
+  --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 16px; --cds-gap-lg: 24px; --cds-gap-xl: 32px;
+  --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 20px; --cds-radius: 8px;
+  --cds-font-size-caption: 12px; --cds-font-size-body: 14px; --cds-font-size-heading: 16px; --cds-font-size-title: 28px;
+  --cds-font-weight-medium: 600; --cds-surface-popover: #ffffff; --cds-border: #dcd9d2;
+  --cds-shadow-popover: 0 4px 16px rgba(0,0,0,.12); --cds-text-secondary: #6b6a66;
+  --cds-chart-grid: #eeece7; --cds-chart-axis: #c9c6bf; --cds-chart-reference: #9a978f; --cds-chart-muted: #c9c6bf;
+  --cds-dur-slow: 300ms;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-fg: #ecebe8; --color-fg-muted: #a3a19b; --color-bg: #1b1a18; --color-panel: #24231f;
+    --color-border-line: #3a3833; --color-ok: #6cc08b; --color-warn: #e8945a; --color-bad: #ef6f5e;
+    --cds-surface-popover: #2c2b27; --cds-border: #45433d; --cds-text-secondary: #a3a19b;
+    --cds-chart-grid: #33312c; --cds-chart-axis: #55534c; --cds-chart-reference: #7d7a72; --cds-chart-muted: #55534c;
+  }
+}
+html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-anthropic-sans); }
+#dash-root { max-width: 1280px; margin: 0 auto; padding: clamp(12px, 3vw, 32px); box-sizing: border-box; }
+#dash-root .dash-select { font: inherit; font-size: var(--cds-font-size-body); color: var(--color-fg); background-color: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: 6px 28px 6px 10px; appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--color-fg-muted) 50%), linear-gradient(135deg, var(--color-fg-muted) 50%, transparent 50%); background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%; background-size: 5px 5px; background-repeat: no-repeat; max-width: 100%; }
+#dash-root .dash-skeleton { background: linear-gradient(90deg, var(--color-border-line), var(--color-panel), var(--color-border-line)); background-size: 200% 100%; animation: pm-sk 1.2s linear infinite; border-radius: var(--cds-radius); min-height: 1em; }
+@keyframes pm-sk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+#dash-root .pm-foot { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; }
+</style>
+<script src="historial.js"></script>
+<script src="mensual.js"></script>
+<script src="cilindradas.js"></script>
+<script>
+(() => {
+  const D = window.PM_DATA || {};
+  const parseCSV = (txt) => {
+    const out = []; let row = [], f = '', q = false;
+    for (let i = 0; i < txt.length; i++) {
+      const c = txt[i];
+      if (q) { if (c === '"') { if (txt[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+      else if (c === '"') q = true;
+      else if (c === ',') { row.push(f); f = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && txt[i + 1] === '\n') i++; row.push(f); f = ''; if (row.length > 1 || row[0] !== '') out.push(row); row = []; }
+      else f += c;
+    }
+    if (f !== '' || row.length) { row.push(f); out.push(row); }
+    const [h, ...rs] = out;
+    return rs.map((r) => Object.fromEntries(h.map((k, i) => [k, r[i] ?? ''])));
+  };
+  const precios = [];
+  for (const [marca, grupo, categoria, modelo, start, arr] of (D.historial || [])) {
+    const [y, m] = start.split('-').map(Number); const t0 = y * 12 + m - 1;
+    arr.forEach((p, i) => { if (p != null) { const t = t0 + i; precios.push({ marca, grupo, categoria, modelo, mes: Math.floor(t / 12) + '-' + String(t % 12 + 1).padStart(2, '0'), precio: p }); } });
+  }
+  const store = { precios, precios_mensuales: parseCSV(D.precios_mensuales_csv || 'x\n'), cilindradas: parseCSV(D.cilindradas_csv || 'x\n') };
+  const defaults = { tab: 'categoria', cat: 'Scooter', rango: '12', vigentes: true, marca2: 'Yamaha', modelo2: 'NMAX' };
+  let params = { ...defaults };
+  const draws = new Map(), watchers = [];
+  let pending = false;
+  const visible = (el) => !el.closest('[hidden]');
+  const runDraw = (name) => { const fn = draws.get(name); if (!fn) return; document.querySelectorAll('[data-draw="' + name + '"]').forEach((el) => { if (visible(el)) fn(el); }); };
+  const run = () => { pending = false; watchers.forEach((f) => f()); for (const name of draws.keys()) runDraw(name); };
+  const schedule = () => { if (!pending) { pending = true; requestAnimationFrame(run); } };
+  window.dash = {
+    colors: ['#2f6fd6', '#e0702f', '#1f9a74', '#c64a7a', '#7a5cd6', '#b8901a', '#2f9fb8', '#8a5a2b'],
+    data: (id) => (id in store ? { status: 'ok', data: store[id], meta: [] } : { status: 'missing', data: [], meta: [] }),
+    calc: (id, o) => { store[id] = o.fn(...o.inputs.map((i) => store[i] || [])); },
+    loader: () => {},
+    draw: (name, fn) => { if (typeof fn === 'function') { draws.set(name, fn); schedule(); } else runDraw(name); },
+    onData: (fn) => { watchers.push(fn); fn(); },
+    params: () => params,
+    setParams: (o) => { for (const k in o) { if (o[k] == null) delete params[k]; else params[k] = o[k]; } schedule(); },
+    resetParams: () => { params = { ...defaults }; schedule(); },
+    setLink: (n) => { try { history.replaceState(null, '', '#' + n); } catch (e) {} },
+    refresh: () => {},
+  };
+  let w = window.innerWidth;
+  window.addEventListener('resize', () => { if (window.innerWidth !== w) { w = window.innerWidth; schedule(); } });
+})();
+</script>
+</head>
+<body>
+<div id="dash-root">
+<style>
+#dash-root [hidden] { display: none !important; }
+#dash-root .pm { font-family: var(--font-anthropic-sans); display: flex; flex-direction: column; gap: var(--cds-gap-lg); }
+#dash-root .pm-title { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; }
+#dash-root .pm-sub { margin: var(--cds-gap-xs) 0 0; color: var(--color-fg-muted); font-size: var(--cds-font-size-body); }
+#dash-root .pm-sub b { color: var(--color-fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+#dash-root .pm-tabs { display: flex; gap: var(--cds-gap-xs); border-bottom: 1px solid var(--color-border-line); flex-wrap: wrap; }
+#dash-root .pm-tab { font: inherit; font-size: var(--cds-font-size-body); background: none; border: 0; border-bottom: 2px solid transparent; padding: var(--cds-pad-sm) var(--cds-pad-md); color: var(--color-fg-muted); cursor: pointer; margin-bottom: -1px; }
+#dash-root .pm-tab[aria-selected="true"] { color: var(--color-fg); border-bottom-color: var(--color-fg); font-weight: var(--cds-font-weight-medium); }
+#dash-root .pm-page { display: flex; flex-direction: column; gap: var(--cds-gap-md); }
+#dash-root .pm-controls { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); align-items: end; }
+#dash-root .pm-controls label { display: flex; flex-direction: column; gap: var(--cds-gap-xs); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+#dash-root .pm-controls label.pm-check { flex-direction: row; align-items: center; font-size: var(--cds-font-size-body); color: var(--color-fg); padding-bottom: var(--cds-pad-xs); }
+#dash-root .pm-controls select { min-width: 12rem; }
+#dash-root .pm-search { font: inherit; font-size: var(--cds-font-size-body); padding: var(--cds-pad-xs) var(--cds-pad-sm); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-bg); color: var(--color-fg); min-width: 14rem; }
+#dash-root .pm-brands { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs); min-height: 1.9rem; }
+#dash-root .pm-chip { font: inherit; font-size: var(--cds-font-size-caption); border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg); border-radius: 999px; padding: var(--cds-pad-xs) var(--cds-pad-sm); cursor: pointer; display: inline-flex; align-items: center; gap: var(--cds-gap-xs); }
+#dash-root .pm-chip[aria-pressed="false"] { opacity: .45; text-decoration: line-through; }
+#dash-root .pm-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-sm); min-width: 0; }
+#dash-root .pm-card h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+#dash-root .pm-note { margin: 0; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+#dash-root .pm-chart { position: relative; min-height: 380px; }
+#dash-root .pm-bars { position: relative; min-height: 120px; }
+#dash-root .pm-legend { display: flex; flex-direction: column; gap: var(--cds-gap-xs); margin-top: var(--cds-gap-sm); }
+#dash-root .pm-legend-row { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs); align-items: center; }
+#dash-root .pm-legend-brand { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); min-width: 5.5rem; font-weight: var(--cds-font-weight-medium); }
+#dash-root .pm-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); min-width: 12rem; max-width: 20rem; z-index: 2; }
+#dash-root .pm-tip-h { color: var(--cds-text-secondary); margin-bottom: var(--cds-gap-xs); }
+#dash-root .pm-tip-r { display: flex; align-items: center; gap: var(--cds-gap-xs); white-space: nowrap; }
+#dash-root .pm-tip-r span.pm-n { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+#dash-root .pm-tip-r span.pm-v { font-variant-numeric: tabular-nums; }
+#dash-root .pm-tablebox { max-height: 32rem; overflow: auto; }
+#dash-root .pm-table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-body); font-variant-numeric: tabular-nums; }
+#dash-root .pm-table th { position: sticky; top: 0; background: var(--color-panel); text-align: left; border-bottom: 1px solid var(--color-border-line); padding: 0; z-index: 1; }
+#dash-root .pm-table th button { font: inherit; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); background: none; border: 0; padding: var(--cds-pad-xs) var(--cds-pad-sm); cursor: pointer; width: 100%; text-align: inherit; }
+#dash-root .pm-table th.pm-num, #dash-root .pm-table td.pm-num { text-align: right; }
+#dash-root .pm-table td { padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+#dash-root .pm-table tr.pm-sel td { font-weight: 600; }
+#dash-root .pm-up { color: var(--color-warn); }
+#dash-root .pm-down { color: var(--color-ok); }
+#dash-root .pm-muted { color: var(--color-fg-muted); }
+#dash-root .pm-fail { display: flex; align-items: center; justify-content: center; gap: var(--cds-gap-xs); color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); min-height: inherit; }
+#dash-root .pm-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+#dash-root .pm-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: var(--cds-gap-md); }
+#dash-root .pm-notes { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+#dash-root .pm-notes dt { color: var(--color-fg); font-weight: var(--cds-font-weight-medium); margin-top: var(--cds-gap-sm); }
+#dash-root .pm-notes dd { margin: 0; }
+#dash-root [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+#dash-root [data-dash-source-state=empty] { color: transparent; }
+</style>
+
+<div class="pm">
+  <header>
+    <h1 class="pm-title" id="titulo">Historial de precios de motocicletas</h1>
+    <p class="pm-sub">Datos hasta <b data-draw="h-mes" data-source="resumen" data-field="ultimo_mes">—</b>: <b data-draw="h-vig" data-source="resumen" data-field="modelos_vigentes">—</b> modelos con precio vigente; <b data-draw="h-sub" data-source="resumen" data-field="subidas">—</b> subieron y <b data-draw="h-baj" data-source="resumen" data-field="bajadas">—</b> bajaron de precio contra el mes anterior; <b data-draw="h-bono" data-source="resumen" data-field="con_bono">—</b> tienen bono.</p>
+  </header>
+
+  <nav class="pm-tabs" role="tablist" aria-label="Vistas">
+    <button class="pm-tab" role="tab" data-tab="categoria" aria-selected="true">Por categoría</button>
+    <button class="pm-tab" role="tab" data-tab="modelo" aria-selected="false">Modelo vs. competencia</button>
+    <button class="pm-tab" role="tab" data-tab="cambios" aria-selected="false">Cambios del mes</button>
+  </nav>
+
+  <div class="pm-controls" id="filtro-marcas">
+    <label>Marcas
+      <select class="dash-select pm-grupo" aria-label="Marcas">
+        <option value="todas">Todas las marcas</option>
+        <option value="Japonesas">Solo japonesas (Yamaha, Honda, Suzuki, Kawasaki)</option>
+        <option value="Otras marcas">Solo otras marcas</option>
+      </select>
+    </label>
+  </div>
+
+  <section class="pm-page" id="categoria" data-page="categoria">
+    <div class="pm-controls">
+      <label>Categoría
+        <select class="dash-select" data-draw="sel-cat" data-source="resumen_modelos" aria-label="Categoría"></select>
+      </label>
+      <label>Periodo
+        <select class="dash-select pm-rango" aria-label="Periodo">
+          <option value="12">Últimos 12 meses</option>
+          <option value="24">Últimos 24 meses</option>
+          <option value="60">Últimos 5 años</option>
+          <option value="all">Todo el historial</option>
+        </select>
+      </label>
+      <label class="pm-check"><input type="checkbox" class="pm-vig"> Solo modelos con precio vigente</label>
+    </div>
+    <div class="pm-brands" data-draw="brands" data-source="resumen_modelos" aria-label="Marcas">—</div>
+
+    <div class="pm-card" id="grafica-categoria">
+      <h2>Precio de lista por modelo</h2>
+      <p class="pm-note">Pasa el cursor sobre la gráfica para ver el precio de cada modelo en ese mes. Haz clic en un modelo de la leyenda para ocultarlo o mostrarlo.</p>
+      <div class="pm-chart" data-draw="chart-cat" data-source="serie"></div>
+    </div>
+
+    <div class="pm-card" id="tabla-categoria">
+      <h2>Modelos de la categoría</h2>
+      <p class="pm-note">Precio en el último mes con datos y su cambio. Haz clic en un encabezado para ordenar.</p>
+      <div class="pm-tablebox">
+        <table class="pm-table" data-source="resumen_modelos" data-row-key="marca,modelo" data-sort-table="cat">
+          <thead><tr>
+            <th data-field="marca"><button data-sort="marca">Marca</button></th>
+            <th data-field="modelo"><button data-sort="modelo">Modelo</button></th>
+            <th data-field="precio_actual" class="pm-num"><button data-sort="precio_actual">Precio final</button></th>
+            <th data-field="bono_actual" class="pm-num"><button data-sort="bono_actual">Bono</button></th>
+            <th data-field="cambio_mes_pct" class="pm-num"><button data-sort="cambio_mes_pct">vs. mes anterior</button></th>
+            <th data-field="precio_hace_12m" class="pm-num"><button data-sort="precio_hace_12m">Hace 12 meses</button></th>
+            <th data-field="cambio_12m_pct" class="pm-num"><button data-sort="cambio_12m_pct">vs. 12 meses</button></th>
+            <th data-field="ultimo_mes_con_precio" class="pm-num"><button data-sort="ultimo_mes_con_precio">Último precio registrado</button></th>
+          </tr></thead>
+          <tbody data-draw="tbody-cat"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="pm-page" id="modelo" data-page="modelo" hidden>
+    <div class="pm-controls">
+      <label>Marca
+        <select class="dash-select" data-draw="sel-marca2" data-source="resumen_modelos" aria-label="Marca"></select>
+      </label>
+      <label>Modelo
+        <select class="dash-select" data-draw="sel-modelo2" data-source="resumen_modelos" aria-label="Modelo"></select>
+      </label>
+      <label>Cilindrada de la competencia
+        <select class="dash-select pm-cc" aria-label="Cilindrada">
+          <option value="todas">Todas las cilindradas</option>
+          <option value="similar">Similar al modelo elegido (±25%)</option>
+          <option value="0-125">Hasta 125 cc</option>
+          <option value="126-200">126 a 200 cc</option>
+          <option value="201-300">201 a 300 cc</option>
+          <option value="301-500">301 a 500 cc</option>
+          <option value="501-800">501 a 800 cc</option>
+          <option value="801-1000">801 a 1,000 cc</option>
+          <option value="1001-99999">Más de 1,000 cc</option>
+        </select>
+      </label>
+      <label>Periodo
+        <select class="dash-select pm-rango" aria-label="Periodo">
+          <option value="12">Últimos 12 meses</option>
+          <option value="24">Últimos 24 meses</option>
+          <option value="60">Últimos 5 años</option>
+          <option value="all">Todo el historial</option>
+        </select>
+      </label>
+    </div>
+    <div class="pm-grid2">
+      <div class="pm-card" id="grafica-modelo">
+        <h2>Historial del modelo contra su categoría</h2>
+        <p class="pm-note">El modelo elegido va resaltado; las líneas grises son los demás modelos de la misma categoría que pasan los filtros de marcas y cilindrada. Con un filtro de cilindrada activo se ocultan los modelos sin ese dato.</p>
+        <div class="pm-chart" data-draw="chart-mod" data-source="serie"></div>
+      </div>
+      <div class="pm-card" id="posicion-modelo">
+        <h2>Posición de precio en la categoría</h2>
+        <p class="pm-note">Precio actual de cada modelo vigente de la categoría, de mayor a menor.</p>
+        <div class="pm-bars" data-draw="bars-mod" data-source="resumen_modelos cilindradas"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pm-page" id="cambios" data-page="cambios" hidden>
+    <div class="pm-controls">
+      <label>Buscar
+        <input class="pm-search" type="search" placeholder="Marca, categoría o modelo" aria-label="Buscar">
+      </label>
+    </div>
+    <div class="pm-card" id="tabla-cambios">
+      <h2>Modelos que cambiaron de precio en el último mes</h2>
+      <p class="pm-note">Comparación del último mes con datos contra el mes anterior, igual que la hoja «% Cambios precios» del Excel.</p>
+      <div class="pm-tablebox">
+        <table class="pm-table" data-source="resumen_modelos" data-row-key="marca,modelo" data-sort-table="cambios">
+          <thead><tr>
+            <th data-field="marca"><button data-sort="marca">Marca</button></th>
+            <th data-field="categoria"><button data-sort="categoria">Categoría</button></th>
+            <th data-field="modelo"><button data-sort="modelo">Modelo</button></th>
+            <th data-field="precio_anterior" class="pm-num"><button data-sort="precio_anterior">Mes anterior</button></th>
+            <th data-field="precio_actual" class="pm-num"><button data-sort="precio_actual">Mes actual</button></th>
+            <th data-field="bono_actual" class="pm-num"><button data-sort="bono_actual">Bono</button></th>
+            <th data-field="cambio_mes_pct" class="pm-num"><button data-sort="cambio_mes_pct">% cambio</button></th>
+          </tr></thead>
+          <tbody data-draw="tbody-cambios"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <details class="pm-notes">
+    <summary>Cómo leer este dashboard</summary>
+    <dl>
+      <dt>Precio</dt><dd>Hasta octubre de 2026, el precio que registra el Excel. Desde noviembre de 2026, el precio final con la promoción ya aplicada, tomado del sitio oficial de cada marca en México. Todas las gráficas y los porcentajes de cambio usan este precio.</dd>
+      <dt>Bono</dt><dd>Precio de lista menos precio final, cuando el sitio oficial muestra una promoción. Solo existe desde noviembre de 2026.</dd>
+      <dt>Cilindrada</dt><dd>Cilindrada en cc de cada modelo. Por ahora es una tabla preliminar armada por Claude a partir de fichas técnicas conocidas; en Italika y Vento es la cilindrada nominal del nombre del modelo. Algunos modelos no tienen dato. La tarea mensual la verifica contra los sitios oficiales.</dd>
+      <dt>Marcas japonesas</dt><dd>Yamaha, Honda, Suzuki y Kawasaki. «Otras marcas» son BMW, KTM, Bajaj, Italika, Vento y las marcas que se agreguen después.</dd>
+      <dt>Precio vigente</dt><dd>El modelo tiene precio en el último mes con datos. Un 0 o una celda vacía en el Excel se toma como «sin precio ese mes» y la línea se corta.</dd>
+      <dt>Categorías</dt><dd>Se unificaron «Deportiva» y «Super Deportiva» de la hoja de otras marcas con «Deportivas» y «Super Deportivas».</dd>
+      <dt>Modelos repetidos</dt><dd>Cuando un modelo aparecía dos veces en la misma marca (por ejemplo V-STROM 160), se juntaron sus meses en una sola línea.</dd>
+    </dl>
+  </details>
+</div>
+
+<script>
+(() => {
+  const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const parseMes = d3.utcParse('%Y-%m');
+  const P = window.PM = {};
+  P.parseMes = parseMes;
+  P.mesTxt = (d) => MES[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+  P.mesCorto = (d) => MES[d.getUTCMonth()] + ' ' + String(d.getUTCFullYear()).slice(2);
+  P.mesStr = (s) => s ? P.mesTxt(parseMes(s)) : '—';
+  P.money = (v) => v == null || isNaN(v) ? '—' : '$' + d3.format(',.0f')(v);
+  P.moneyShort = (v) => v >= 1e6 ? '$' + d3.format('.2~f')(v / 1e6) + ' M' : '$' + d3.format(',.0f')(v / 1000) + 'k';
+  P.pct = (v) => v == null || isNaN(v) ? '—' : (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '') + d3.format('.1%')(Math.abs(v));
+  P.pctClass = (v) => v > 0 ? 'pm-up' : v < 0 ? 'pm-down' : 'pm-muted';
+  P.key = (m, n) => encodeURIComponent(m) + ',' + encodeURIComponent(n);
+  P.off = new Set();      // marcas ocultas (pestaña categoría)
+  P.hidden = new Set();   // modelos ocultos en la gráfica
+  P.hover = null;
+  P.sort = { cat: { k: 'precio_actual', dir: -1 }, cambios: { k: 'cambio_mes_pct', dir: -1 } };
+  P.q = '';
+
+  // Estado de carga / error de un elemento; devuelve true si los datos están listos
+  P.ready = (el, ids, keepEmpty) => {
+    const st = ids.map((id) => dash.data(id).status);
+    if (st.every((s) => s === 'ok')) { el.classList.remove('dash-skeleton'); return true; }
+    if (st.some((s) => s === 'error' || s === 'missing')) {
+      el.classList.remove('dash-skeleton');
+      const f = document.createElement('div'); f.className = 'pm-fail'; f.textContent = 'Failed to load';
+      el.replaceChildren(f);
+    } else {
+      el.classList.add('dash-skeleton');
+      el.replaceChildren();
+      if (!keepEmpty) el.textContent = '—';
+    }
+    return false;
+  };
+
+  // Índice de series por modelo, a partir del archivo de precios
+  let cacheData = null, cacheIdx = null;
+  P.index = () => {
+    const rows = dash.data('serie').data;
+    if (rows === cacheData) return cacheIdx;
+    const map = new Map(); let last = null;
+    for (const r of rows) {
+      const k = r.marca + '|' + r.modelo;
+      if (!map.has(k)) map.set(k, { key: k, marca: r.marca, modelo: r.modelo, categoria: r.categoria, pts: [] });
+      const d = parseMes(r.mes);
+      map.get(k).pts.push({ d, p: Number(r.precio), b: r.bono });
+      if (!last || d > last) last = d;
+    }
+    for (const s of map.values()) s.pts.sort((a, b) => a.d - b.d);
+    const first = d3.min([...map.values()], (s) => s.pts[0].d);
+    cacheData = rows; cacheIdx = { map, last, first, months: d3.utcMonth.range(first, d3.utcMonth.offset(last, 1)) };
+    return cacheIdx;
+  };
+  P.rangeStart = (idx) => {
+    const r = dash.params().rango ?? '12';
+    return r === 'all' ? idx.first : d3.max([idx.first, d3.utcMonth.offset(idx.last, -(Number(r) - 1))]);
+  };
+  P.brandOrder = (rows) => [...new Set(rows.map((r) => r.marca))];
+
+  // Gráfica de líneas con tooltip y leyenda
+  P.lineChart = (el, series, opt) => {
+    const W = Math.max(280, el.clientWidth), H = W < 520 ? 300 : 380;
+    const months = opt.months;
+    const shown = series.filter((s) => !opt.hidden || !opt.hidden.has(s.key));
+    el.replaceChildren();
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H).style('display', 'block').style('overflow', 'visible');
+    const vals = shown.flatMap((s) => s.pts.map((p) => p.p));
+    if (!vals.length) {
+      svg.append('text').attr('x', W / 2).attr('y', H / 2).attr('text-anchor', 'middle').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)').text('Sin precios para los modelos elegidos en este periodo');
+    }
+    const lo = d3.min(vals) ?? 0, hi = d3.max(vals) ?? 1;
+    const y = d3.scaleLinear([lo === hi ? lo * 0.9 : lo - (hi - lo) * 0.05, lo === hi ? hi * 1.1 : hi + (hi - lo) * 0.05], [H - 28, 10]).nice(6);
+    const yTicks = y.ticks(6);
+    const probe = svg.append('text').style('font-size', 'var(--cds-font-size-caption)');
+    let wMax = 0; for (const t of yTicks) { probe.text(P.moneyShort(t)); wMax = Math.max(wMax, probe.node().getComputedTextLength()); }
+    probe.remove();
+    const m = { l: Math.ceil(wMax) + 10, r: 14 };
+    const x = d3.scaleUtc([months[0], months[months.length - 1]], [m.l, W - m.r]);
+    const g = svg.append('g');
+    g.selectAll('line.grid').data(yTicks).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', (d) => y(d)).attr('y2', (d) => y(d)).attr('stroke', 'var(--cds-chart-grid)');
+    g.selectAll('text.yt').data(yTicks).join('text').attr('x', m.l - 8).attr('y', (d) => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)').text(P.moneyShort);
+    const nT = Math.max(2, Math.min(months.length, Math.floor((W - m.l - m.r) / 70)));
+    const step = Math.max(1, Math.ceil(months.length / nT));
+    const xT = months.filter((d, i) => (months.length - 1 - i) % step === 0);
+    g.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', H - 28).attr('y2', H - 28).attr('stroke', 'var(--cds-chart-axis)');
+    g.selectAll('text.xt').data(xT).join('text').attr('x', (d) => x(d)).attr('y', H - 8).attr('text-anchor', (d, i) => i === xT.length - 1 && x(d) > W - 40 ? 'end' : 'middle').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)').text(P.mesCorto);
+
+    const line = d3.line().defined((p) => p.p != null).x((p) => x(p.d)).y((p) => y(p.p));
+    const filled = (s) => {
+      const byM = new Map(s.pts.map((p) => [+p.d, p.p]));
+      return months.map((d) => ({ d, p: byM.get(+d) ?? null }));
+    };
+    const order = opt.highlight ? [...shown].sort((a, b) => (a.key === opt.highlight) - (b.key === opt.highlight)) : shown;
+    const paths = g.append('g').selectAll('path').data(order, (s) => s.key).join('path')
+      .attr('d', (s) => line(filled(s))).attr('fill', 'none')
+      .attr('stroke', (s) => s.color).attr('stroke-width', (s) => s.width || 2).attr('stroke-dasharray', (s) => s.dash || null)
+      .attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+    const dots = g.append('g').selectAll('circle').data(order, (s) => s.key).join('circle')
+      .attr('cx', (s) => { const p = s.pts.find((q) => +q.d === +months[0]); return p ? x(p.d) : -99; })
+      .attr('r', (s) => months.length === 1 ? 3.5 : 0).attr('cy', (s) => { const p = s.pts.find((q) => +q.d === +months[0]); return p ? y(p.p) : -99; })
+      .attr('fill', (s) => s.color);
+    const fade = (k) => paths.attr('opacity', (s) => !k || s.key === k ? 1 : 0.15);
+    fade(P.hover && shown.some((s) => s.key === P.hover) ? P.hover : null);
+
+    // tooltip
+    const rule = g.append('line').attr('y1', 10).attr('y2', H - 28).attr('stroke', 'var(--cds-chart-reference)').style('display', 'none');
+    const hoverDots = g.append('g');
+    const tip = document.createElement('div'); tip.className = 'pm-tip'; tip.hidden = true; el.appendChild(tip);
+    svg.append('rect').attr('x', m.l).attr('y', 0).attr('width', Math.max(1, W - m.l - m.r)).attr('height', H - 28).attr('fill', 'transparent')
+      .on('pointermove', (ev) => {
+        const [px] = d3.pointer(ev, svg.node());
+        const sx = px * W / svg.node().getBoundingClientRect().width;
+        const d0 = x.invert(sx);
+        const i = d3.minIndex(months, (d) => Math.abs(d - d0));
+        const d = months[i];
+        const at = shown.map((s) => { const q = s.pts.find((q) => +q.d === +d) || {}; return { s, p: q.p, b: q.b }; }).filter((o) => o.p != null).sort((a, b) => b.p - a.p);
+        rule.style('display', null).attr('x1', x(d)).attr('x2', x(d));
+        hoverDots.selectAll('circle').data(at).join('circle').attr('cx', x(d)).attr('cy', (o) => y(o.p)).attr('r', 3.5).attr('fill', (o) => o.s.color);
+        const head = document.createElement('div'); head.className = 'pm-tip-h'; head.textContent = P.mesTxt(d);
+        const list = (opt.highlight ? [...at.filter((o) => o.s.key === opt.highlight), ...at.filter((o) => o.s.key !== opt.highlight)] : at);
+        const max = 14;
+        const items = list.slice(0, max).map((o) => {
+          const r = document.createElement('div'); r.className = 'pm-tip-r';
+          const sw = document.createElement('span'); sw.style.cssText = `width:10px;height:3px;border-radius:2px;background:${o.s.color};flex:none`;
+          const n = document.createElement('span'); n.className = 'pm-n'; n.textContent = o.s.label;
+          const v = document.createElement('span'); v.className = 'pm-v'; v.textContent = P.money(o.p) + (o.b > 0 ? ' · bono ' + P.money(o.b) : '');
+          if (o.s.key === opt.highlight) r.style.fontWeight = '600';
+          r.append(sw, n, v); return r;
+        });
+        tip.replaceChildren(head, ...items);
+        if (list.length > max) { const more = document.createElement('div'); more.className = 'pm-tip-h'; more.textContent = '+' + (list.length - max) + ' modelos más'; tip.append(more); }
+        if (!list.length) { const none = document.createElement('div'); none.textContent = 'Sin precios este mes'; tip.append(none); }
+        tip.hidden = false;
+        const scale = svg.node().getBoundingClientRect().width / W;
+        const tw = tip.offsetWidth, cx = x(d) * scale;
+        tip.style.left = Math.max(0, Math.min(el.clientWidth - tw, cx + 12 + tw > el.clientWidth ? cx - tw - 12 : cx + 12)) + 'px';
+        tip.style.top = '8px';
+      })
+      .on('pointerleave', () => { tip.hidden = true; rule.style('display', 'none'); hoverDots.selectAll('circle').remove(); });
+
+    // leyenda
+    if (opt.legend) {
+      const leg = document.createElement('div'); leg.className = 'pm-legend';
+      const brands = [...new Set(series.map((s) => s.marca))];
+      for (const b of brands) {
+        const row = document.createElement('div'); row.className = 'pm-legend-row';
+        const bl = document.createElement('span'); bl.className = 'pm-legend-brand'; bl.textContent = b; row.append(bl);
+        for (const s of series.filter((q) => q.marca === b)) {
+          const c = document.createElement('button'); c.className = 'pm-chip'; c.type = 'button';
+          c.setAttribute('aria-pressed', String(!opt.hidden.has(s.key)));
+          const sw = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); sw.setAttribute('width', '18'); sw.setAttribute('height', '6');
+          const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          ln.setAttribute('x1', '1'); ln.setAttribute('x2', '17'); ln.setAttribute('y1', '3'); ln.setAttribute('y2', '3');
+          ln.setAttribute('stroke', s.color); ln.setAttribute('stroke-width', '2.5'); if (s.dash) ln.setAttribute('stroke-dasharray', s.dash);
+          sw.append(ln);
+          const t = document.createElement('span'); t.textContent = s.modelo;
+          c.append(sw, t);
+          c.addEventListener('click', () => { opt.hidden.has(s.key) ? opt.hidden.delete(s.key) : opt.hidden.add(s.key); dash.draw('chart-cat'); });
+          c.addEventListener('pointerenter', () => { P.hover = s.key; fade(opt.hidden.has(s.key) ? null : s.key); });
+          c.addEventListener('pointerleave', () => { P.hover = null; fade(null); });
+          row.append(c);
+        }
+        leg.append(row);
+      }
+      el.append(leg);
+    }
+  };
+
+  P.styleFor = (i) => ({ color: dash.colors[i % 8], dash: ['', '6 4', '2 3'][Math.floor(i / 8) % 3] || null });
+
+  // Ordenar filas de una tabla
+  P.sorted = (rows, which) => {
+    const { k, dir } = P.sort[which];
+    return [...rows].sort((a, b) => {
+      const va = a[k], vb = b[k];
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      return (typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb), 'es')) * dir;
+    });
+  };
+  P.td = (txt, cls) => { const td = document.createElement('td'); td.textContent = txt; if (cls) td.className = cls; return td; };
+})();
+</script>
+
+<script>
+dash.calc('serie', {
+  inputs: ['precios', 'precios_mensuales'],
+  title: 'Historial completo de precios',
+  description: 'El historial del Excel más los meses nuevos de los sitios oficiales; si un modelo tiene el mismo mes en ambos, se usa el mensual.',
+  fn: (precios, precios_mensuales) => {
+    const num = (v) => (v === '' || v == null ? null : Number(v));
+    const nuevos = precios_mensuales.filter((r) => num(r.precio) != null);
+    const ya = new Set(nuevos.map((r) => r.marca + '|' + r.modelo + '|' + r.mes));
+    const base = precios.filter((r) => !ya.has(r.marca + '|' + r.modelo + '|' + r.mes))
+      .map((r) => ({ marca: r.marca, grupo: r.grupo, categoria: r.categoria, modelo: r.modelo, mes: r.mes, precio: Number(r.precio), precio_lista: null, bono: null }));
+    const add = nuevos.map((r) => ({ marca: r.marca, grupo: r.grupo, categoria: r.categoria, modelo: r.modelo, mes: r.mes, precio: num(r.precio), precio_lista: num(r.precio_lista), bono: num(r.bono) }));
+    return base.concat(add);
+  },
+});
+
+dash.calc('resumen_modelos', {
+  inputs: ['serie', 'cilindradas'],
+  title: 'Resumen por modelo',
+  description: 'Precio final de cada modelo en el último mes con datos, su bono, su cilindrada, el precio del mes anterior y el de 12 meses antes, con su cambio porcentual.',
+  fn: (serie, cilindradas) => {
+    const precios = serie;
+    const cc = new Map(cilindradas.filter((r) => r.cc !== '' && r.cc != null).map((r) => [r.marca + '|' + r.modelo, Number(r.cc)]));
+    const ult = precios.reduce((m, r) => (r.mes > m ? r.mes : m), '');
+    const restar = (mes, n) => {
+      const [y, m] = mes.split('-').map(Number);
+      const t = y * 12 + (m - 1) - n;
+      return Math.floor(t / 12) + '-' + String((t % 12) + 1).padStart(2, '0');
+    };
+    const ant = restar(ult, 1), hace12 = restar(ult, 12);
+    const modelos = new Map();
+    for (const r of precios) {
+      const k = r.marca + '|' + r.modelo;
+      if (!modelos.has(k)) modelos.set(k, { marca: r.marca, grupo: r.grupo, categoria: r.categoria, modelo: r.modelo, p: {} });
+      modelos.get(k).p[r.mes] = Number(r.precio);
+      if (r.mes === ult) modelos.get(k).b = r.bono;
+    }
+    const cambio = (a, b) => (a != null && b != null ? (a - b) / b : null);
+    return [...modelos.values()].map(({ p, b, ...m }) => {
+      const meses = Object.keys(p).sort();
+      const actual = p[ult] ?? null, anterior = p[ant] ?? null, h12 = p[hace12] ?? null;
+      return {
+        ...m,
+        precio_actual: actual,
+        bono_actual: actual != null ? (b ?? null) : null,
+        cc: cc.get(m.marca + '|' + m.modelo) ?? null,
+        precio_anterior: anterior,
+        cambio_mes_pct: cambio(actual, anterior),
+        precio_hace_12m: h12,
+        cambio_12m_pct: cambio(actual, h12),
+        ultimo_mes_con_precio: meses[meses.length - 1],
+      };
+    });
+  },
+});
+
+dash.calc('resumen', {
+  inputs: ['resumen_modelos'],
+  title: 'Resumen del último mes',
+  description: 'Último mes con datos, modelos con precio vigente y cuántos subieron o bajaron contra el mes anterior.',
+  fn: (resumen_modelos) => {
+    const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const ult = resumen_modelos.reduce((m, r) => (r.ultimo_mes_con_precio > m ? r.ultimo_mes_con_precio : m), '');
+    const vigentes = resumen_modelos.filter((r) => r.precio_actual != null);
+    return [{
+      ultimo_mes: MES[Number(ult.slice(5, 7)) - 1] + ' ' + ult.slice(0, 4),
+      modelos_vigentes: vigentes.length,
+      subidas: vigentes.filter((r) => r.cambio_mes_pct > 0).length,
+      bajadas: vigentes.filter((r) => r.cambio_mes_pct < 0).length,
+      con_bono: vigentes.filter((r) => r.bono_actual > 0).length,
+    }];
+  },
+});
+</script>
+
+<script>
+(() => {
+  const P = window.PM;
+  const head = (field) => (el) => {
+    const g = dash.data('resumen');
+    el.textContent = g.status === 'ok' && g.data[0] ? (typeof g.data[0][field] === 'number' ? d3.format(',')(g.data[0][field]) : g.data[0][field]) : '—';
+  };
+  dash.draw('h-mes', head('ultimo_mes'));
+  dash.draw('h-vig', head('modelos_vigentes'));
+  dash.draw('h-sub', head('subidas'));
+  dash.draw('h-baj', head('bajadas'));
+  dash.draw('h-bono', head('con_bono'));
+  P.grupoOk = (r) => { const g = dash.params().grupo ?? 'todas'; return g === 'todas' || r.grupo === g; };
+  P.ccOk = (r, sel) => {
+    const f = dash.params().cc ?? 'todas';
+    if (f === 'todas' || r === sel) return true;
+    if (r.cc == null) return false;
+    if (f === 'similar') return sel && sel.cc != null && Math.abs(r.cc - sel.cc) <= sel.cc * 0.25;
+    const [lo, hi] = f.split('-').map(Number);
+    return r.cc >= lo && r.cc <= hi;
+  };
+  document.querySelectorAll('.pm-cc').forEach((s) => s.addEventListener('change', () => dash.setParams({ cc: s.value })));
+  document.querySelectorAll('.pm-grupo').forEach((s) => s.addEventListener('change', () => { P.off.clear(); P.hidden.clear(); dash.setParams({ grupo: s.value }); }));
+
+  // Pestañas, periodo y casilla de vigentes (solo muestran / ocultan y ponen valores)
+  document.querySelectorAll('.pm-tab').forEach((b) => b.addEventListener('click', () => { dash.setParams({ tab: b.dataset.tab }); dash.setLink(b.dataset.tab); }));
+  document.querySelectorAll('.pm-rango').forEach((s) => s.addEventListener('change', () => dash.setParams({ rango: s.value })));
+  document.querySelectorAll('.pm-vig').forEach((c) => c.addEventListener('change', () => dash.setParams({ vigentes: c.checked })));
+  document.querySelectorAll('.pm-search').forEach((i) => i.addEventListener('input', () => { P.q = i.value.trim().toLowerCase(); dash.draw('tbody-cambios'); }));
+  document.querySelectorAll('table[data-sort-table]').forEach((t) => {
+    const which = t.dataset.sortTable;
+    t.querySelectorAll('th button[data-sort]').forEach((b) => b.addEventListener('click', () => {
+      const s = P.sort[which];
+      if (s.k === b.dataset.sort) s.dir = -s.dir; else { s.k = b.dataset.sort; s.dir = ['marca', 'modelo', 'categoria'].includes(s.k) ? 1 : -1; }
+      t.querySelectorAll('th').forEach((th) => th.removeAttribute('aria-sort'));
+      b.parentElement.setAttribute('aria-sort', s.dir > 0 ? 'ascending' : 'descending');
+      dash.draw(which === 'cat' ? 'tbody-cat' : 'tbody-cambios');
+    }));
+  });
+  const fromHash = location.hash.slice(1);
+  if (['categoria', 'modelo', 'cambios'].includes(fromHash)) dash.setParams({ tab: fromHash });
+
+  dash.onData(() => {
+    const p = dash.params();
+    const tab = p.tab ?? 'categoria';
+    document.querySelectorAll('section[data-page]').forEach((s) => { s.hidden = s.dataset.page !== tab; });
+    document.querySelectorAll('.pm-tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+    document.querySelectorAll('.pm-rango').forEach((s) => { s.value = p.rango ?? '12'; });
+    document.querySelectorAll('.pm-vig').forEach((c) => { c.checked = p.vigentes !== false; });
+    document.querySelectorAll('.pm-grupo').forEach((s) => { s.value = p.grupo ?? 'todas'; });
+    document.querySelectorAll('.pm-cc').forEach((s) => { s.value = p.cc ?? 'todas'; });
+  });
+
+  // ---------- Pestaña: por categoría ----------
+  const catRows = () => {
+    const g = dash.data('resumen_modelos');
+    if (g.status !== 'ok') return null;
+    const p = dash.params();
+    const cat = p.cat ?? 'Scooter';
+    return g.data.filter((r) => r.categoria === cat && P.grupoOk(r) && (p.vigentes === false || r.precio_actual != null));
+  };
+
+  dash.draw('sel-cat', (sel) => {
+    const g = dash.data('resumen_modelos');
+    if (g.status !== 'ok') { sel.replaceChildren(); return; }
+    const cats = d3.rollups(g.data.filter(P.grupoOk), (v) => v.length, (r) => r.categoria).sort((a, b) => b[1] - a[1]).map((d) => d[0]);
+    sel.replaceChildren(...cats.map((c) => new Option(c, c)));
+    sel.value = dash.params().cat ?? 'Scooter';
+    if (!cats.includes(sel.value) && cats.length) sel.value = cats[0];
+    sel.onchange = () => { P.hidden.clear(); dash.setParams({ cat: sel.value }); };
+  });
+
+  dash.draw('brands', (el) => {
+    const rows = catRows();
+    if (!rows) { P.ready(el, ['resumen_modelos']); return; }
+    const brands = P.brandOrder(rows);
+    el.replaceChildren(...brands.map((b) => {
+      const c = document.createElement('button'); c.type = 'button'; c.className = 'pm-chip';
+      c.setAttribute('aria-pressed', String(!P.off.has(b)));
+      c.textContent = b + ' · ' + rows.filter((r) => r.marca === b).length;
+      c.onclick = () => { P.off.has(b) ? P.off.delete(b) : P.off.add(b); dash.draw('brands'); dash.draw('chart-cat'); dash.draw('tbody-cat'); };
+      return c;
+    }));
+    if (!brands.length) el.textContent = 'Sin modelos en esta categoría';
+  });
+
+  dash.draw('chart-cat', (el) => {
+    if (!P.ready(el, ['serie', 'resumen_modelos'], true)) return;
+    const idx = P.index();
+    const rows = catRows().filter((r) => !P.off.has(r.marca));
+    const start = P.rangeStart(idx);
+    const months = idx.months.filter((d) => d >= start);
+    const brands = P.brandOrder(rows);
+    const ordered = brands.flatMap((b) => rows.filter((r) => r.marca === b).sort((a, z) => (z.precio_actual ?? 0) - (a.precio_actual ?? 0)));
+    const series = ordered.map((r) => idx.map.get(r.marca + '|' + r.modelo))
+      .filter((s) => s && s.pts.some((q) => q.d >= start))
+      .map((s, i) => ({ ...s, label: s.modelo + ' · ' + s.marca, pts: s.pts.filter((q) => q.d >= start), ...P.styleFor(i) }));
+    P.lineChart(el, series, { months, hidden: P.hidden, legend: true });
+  });
+
+  dash.draw('tbody-cat', (tb) => {
+    const rows = catRows();
+    if (!rows) { tb.replaceChildren(); return; }
+    const shown = P.sorted(rows.filter((r) => !P.off.has(r.marca)), 'cat');
+    tb.replaceChildren(...shown.map((r) => {
+      const tr = document.createElement('tr'); tr.dataset.key = P.key(r.marca, r.modelo);
+      tr.append(P.td(r.marca), P.td(r.modelo), P.td(P.money(r.precio_actual), 'pm-num'),
+        P.td(r.bono_actual > 0 ? P.money(r.bono_actual) : '—', 'pm-num'),
+        P.td(P.pct(r.cambio_mes_pct), 'pm-num ' + P.pctClass(r.cambio_mes_pct)),
+        P.td(P.money(r.precio_hace_12m), 'pm-num'),
+        P.td(P.pct(r.cambio_12m_pct), 'pm-num ' + P.pctClass(r.cambio_12m_pct)),
+        P.td(P.mesStr(r.ultimo_mes_con_precio), 'pm-num pm-muted'));
+      return tr;
+    }));
+  });
+
+  // ---------- Pestaña: modelo vs. competencia ----------
+  const chosen = () => {
+    const g = dash.data('resumen_modelos');
+    if (g.status !== 'ok') return null;
+    const p = dash.params();
+    const marcas = P.brandOrder(g.data.filter(P.grupoOk));
+    const marca = marcas.includes(p.marca2 ?? 'Yamaha') ? (p.marca2 ?? 'Yamaha') : marcas[0];
+    const deMarca = g.data.filter((r) => r.marca === marca);
+    const r = deMarca.find((q) => q.modelo === p.modelo2) || deMarca.find((q) => q.precio_actual != null) || deMarca[0];
+    return { all: g.data, marca, deMarca, r };
+  };
+
+  dash.draw('sel-marca2', (sel) => {
+    const g = dash.data('resumen_modelos');
+    if (g.status !== 'ok') { sel.replaceChildren(); return; }
+    const brands = P.brandOrder(g.data.filter(P.grupoOk));
+    sel.replaceChildren(...brands.map((b) => new Option(b, b)));
+    sel.value = brands.includes(dash.params().marca2 ?? 'Yamaha') ? (dash.params().marca2 ?? 'Yamaha') : brands[0];
+    sel.onchange = () => dash.setParams({ marca2: sel.value, modelo2: null });
+  });
+
+  dash.draw('sel-modelo2', (sel) => {
+    const c = chosen();
+    if (!c) { sel.replaceChildren(); return; }
+    const list = [...c.deMarca].sort((a, b) => (b.precio_actual != null) - (a.precio_actual != null) || a.categoria.localeCompare(b.categoria, 'es') || a.modelo.localeCompare(b.modelo, 'es'));
+    sel.replaceChildren(...list.map((r) => new Option(r.modelo + ' (' + r.categoria + (r.cc != null ? ', ' + d3.format(',')(r.cc) + ' cc' : '') + (r.precio_actual == null ? ', sin precio vigente' : '') + ')', r.modelo)));
+    if (c.r) sel.value = c.r.modelo;
+    sel.onchange = () => dash.setParams({ modelo2: sel.value });
+  });
+
+  dash.draw('chart-mod', (el) => {
+    if (!P.ready(el, ['serie', 'resumen_modelos'], true)) return;
+    const c = chosen();
+    if (!c || !c.r) { el.replaceChildren(); return; }
+    const idx = P.index();
+    const start = P.rangeStart(idx);
+    const months = idx.months.filter((d) => d >= start);
+    const selKey = c.r.marca + '|' + c.r.modelo;
+    const peers = c.all.filter((r) => r.categoria === c.r.categoria && ((P.grupoOk(r) && P.ccOk(r, c.r)) || r === c.r));
+    const series = peers.map((r) => idx.map.get(r.marca + '|' + r.modelo))
+      .filter((s) => s && s.pts.some((q) => q.d >= start))
+      .map((s) => ({ ...s, label: s.modelo + ' · ' + s.marca, pts: s.pts.filter((q) => q.d >= start),
+        color: s.key === selKey ? dash.colors[0] : 'var(--cds-chart-muted)', width: s.key === selKey ? 3 : 1.25 }));
+    P.lineChart(el, series, { months, highlight: selKey });
+  });
+
+  dash.draw('bars-mod', (el) => {
+    if (!P.ready(el, ['resumen_modelos'], true)) return;
+    const c = chosen();
+    if (!c || !c.r) { el.replaceChildren(); return; }
+    const rows = c.all.filter((r) => r.categoria === c.r.categoria && r.precio_actual != null && ((P.grupoOk(r) && P.ccOk(r, c.r)) || r === c.r)).sort((a, b) => b.precio_actual - a.precio_actual);
+    el.replaceChildren();
+    if (!rows.length) { el.textContent = 'Ningún modelo de esta categoría tiene precio vigente'; return; }
+    const W = Math.max(280, el.clientWidth), rowH = 24, H = rows.length * rowH + 8;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H).style('display', 'block');
+    const lab = (r) => r.modelo + ' · ' + r.marca + (r.cc != null ? ' · ' + d3.format(',')(r.cc) + ' cc' : '');
+    const probe = svg.append('text').style('font-size', 'var(--cds-font-size-caption)');
+    let lw = 0, vw = 0;
+    for (const r of rows) { probe.text(lab(r)); lw = Math.max(lw, probe.node().getComputedTextLength()); probe.text(P.money(r.precio_actual)); vw = Math.max(vw, probe.node().getComputedTextLength()); }
+    probe.remove();
+    lw = Math.min(lw, W * 0.45);
+    const x = d3.scaleLinear([0, d3.max(rows, (r) => r.precio_actual)], [lw + 12, W - vw - 10]);
+    const g = svg.selectAll('g').data(rows).join('g').attr('transform', (r, i) => `translate(0,${i * rowH + 4})`);
+    const isSel = (r) => r.marca === c.r.marca && r.modelo === c.r.modelo;
+    g.append('text').attr('x', lw).attr('y', rowH / 2 - 2).attr('dy', '0.32em').attr('text-anchor', 'end')
+      .attr('fill', (r) => isSel(r) ? 'var(--color-fg)' : 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)').style('font-weight', (r) => isSel(r) ? 600 : null)
+      .text((r) => { const t = lab(r); return t.length > 44 ? t.slice(0, 43) + '…' : t; });
+    g.append('rect').attr('x', lw + 12).attr('y', 3).attr('height', rowH - 10).attr('rx', 3)
+      .attr('width', (r) => Math.max(1, x(r.precio_actual) - (lw + 12)))
+      .attr('fill', (r) => isSel(r) ? dash.colors[0] : 'var(--cds-chart-muted)');
+    g.append('text').attr('x', (r) => x(r.precio_actual) + 6).attr('y', rowH / 2 - 2).attr('dy', '0.32em')
+      .attr('fill', 'var(--color-fg)').style('font-size', 'var(--cds-font-size-caption)').style('font-variant-numeric', 'tabular-nums')
+      .text((r) => P.money(r.precio_actual));
+  });
+
+  // ---------- Pestaña: cambios del mes ----------
+  dash.draw('tbody-cambios', (tb) => {
+    const g = dash.data('resumen_modelos');
+    if (g.status !== 'ok') { tb.replaceChildren(); return; }
+    const q = P.q;
+    const rows = g.data.filter((r) => r.cambio_mes_pct != null && r.cambio_mes_pct !== 0 && P.grupoOk(r))
+      .filter((r) => !q || (r.marca + ' ' + r.categoria + ' ' + r.modelo).toLowerCase().includes(q));
+    tb.replaceChildren(...P.sorted(rows, 'cambios').map((r) => {
+      const tr = document.createElement('tr'); tr.dataset.key = P.key(r.marca, r.modelo);
+      tr.append(P.td(r.marca), P.td(r.categoria), P.td(r.modelo), P.td(P.money(r.precio_anterior), 'pm-num'),
+        P.td(P.money(r.precio_actual), 'pm-num'), P.td(r.bono_actual > 0 ? P.money(r.bono_actual) : '—', 'pm-num'),
+        P.td(P.pct(r.cambio_mes_pct), 'pm-num ' + P.pctClass(r.cambio_mes_pct)));
+      return tr;
+    }));
+  });
+})();
+</script>
+
+<p class="pm-foot">Precios en pesos mexicanos. Historial hasta octubre de 2026 tomado del Excel de precios; desde noviembre de 2026, precio final con promoción tomado del sitio oficial de cada marca. Se actualiza automáticamente cada mes.</p>
+</div>
+</body>
+</html>
