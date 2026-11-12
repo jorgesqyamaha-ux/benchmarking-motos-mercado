@@ -201,6 +201,7 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
             <th data-field="marca"><button data-sort="marca">Marca</button></th>
             <th data-field="modelo"><button data-sort="modelo">Modelo</button></th>
             <th data-field="anio_modelo" class="pm-num"><button data-sort="anio_modelo">Año</button></th>
+            <th data-field="fuente"><button data-sort="fuente">Fuente</button></th>
             <th data-field="precio_actual" class="pm-num"><button data-sort="precio_actual">Precio final</button></th>
             <th data-field="bono_actual" class="pm-num"><button data-sort="bono_actual">Bono</button></th>
             <th data-field="cambio_mes_pct" class="pm-num"><button data-sort="cambio_mes_pct">vs. mes anterior</button></th>
@@ -274,6 +275,7 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
             <th data-field="categoria"><button data-sort="categoria">Categoría</button></th>
             <th data-field="modelo"><button data-sort="modelo">Modelo</button></th>
             <th data-field="anio_modelo" class="pm-num"><button data-sort="anio_modelo">Año</button></th>
+            <th data-field="fuente"><button data-sort="fuente">Fuente</button></th>
             <th data-field="precio_anterior" class="pm-num"><button data-sort="precio_anterior">Mes anterior</button></th>
             <th data-field="precio_actual" class="pm-num"><button data-sort="precio_actual">Mes actual</button></th>
             <th data-field="bono_actual" class="pm-num"><button data-sort="bono_actual">Bono</button></th>
@@ -291,6 +293,7 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
       <dt>Precio</dt><dd>Hasta octubre de 2026, el precio que registra el Excel. Desde noviembre de 2026, el precio final con la promoción ya aplicada, tomado del sitio oficial de cada marca en México. Todas las gráficas y los porcentajes de cambio usan este precio.</dd>
       <dt>Bono</dt><dd>Precio de lista menos precio final, cuando el sitio oficial muestra una promoción. Solo existe desde noviembre de 2026.</dd>
       <dt>Cilindrada</dt><dd>Cilindrada en cc de cada modelo. Por ahora es una tabla preliminar armada por Claude a partir de fichas técnicas conocidas; en Italika y Vento es la cilindrada nominal del nombre del modelo. Algunos modelos no tienen dato. La tarea mensual la verifica contra los sitios oficiales.</dd>
+      <dt>Fuente</dt><dd>«Sitio oficial»: precio publicado por la marca en su sitio de México. «Galgo»: para Suzuki, KTM y Bajaj, cuyos sitios oficiales no publican precios, se usa el precio de Galgo, un marketplace de motos nuevas; es precio de distribuidor y puede variar por promoción o ubicación. Cuando Galgo vende la versión «UG» (actualizada) y la anterior al mismo tiempo, la UG se toma como 2026 y la anterior como 2025.</dd>
       <dt>Año modelo</dt><dd>Año de la versión publicada en el sitio oficial, desde noviembre de 2026. Si el sitio no lo indica, se toma el año en curso. Cuando una marca vende dos años de un mismo modelo, cada versión aparece por separado con su precio y su bono (por ejemplo «MT-07 2026» y «MT-07 2027»), y el historial del Excel se une a la versión más antigua. Los modelos que ya no se venden no tienen año y solo aparecen con «Todos los años».</dd>
       <dt>Marcas japonesas</dt><dd>Yamaha, Honda, Suzuki y Kawasaki. «Otras marcas» son BMW, KTM, Bajaj, Italika, Vento, CFMOTO y las marcas que se agreguen después.</dd>
       <dt>Precio vigente</dt><dd>El modelo tiene precio en el último mes con datos. Un 0 o una celda vacía en el Excel se toma como «sin precio ese mes» y la línea se corta.</dd>
@@ -508,7 +511,7 @@ dash.calc('serie', {
       const anio = a && a.size ? Math.min(...a) : null;
       return { marca: r.marca, grupo: r.grupo, categoria: r.categoria, modelo: nombre(r.marca, r.modelo, anio), modelo_base: r.modelo, anio_modelo: anio, mes: r.mes, precio: Number(r.precio), precio_lista: null, bono: null };
     });
-    const add = nuevos.map((r) => ({ marca: r.marca, grupo: r.grupo, categoria: r.categoria, modelo: nombre(r.marca, r.modelo, num(r.anio_modelo)), modelo_base: r.modelo, anio_modelo: num(r.anio_modelo), mes: r.mes, precio: num(r.precio), precio_lista: num(r.precio_lista), bono: num(r.bono) }));
+    const add = nuevos.map((r) => ({ marca: r.marca, grupo: r.grupo, categoria: r.categoria, modelo: nombre(r.marca, r.modelo, num(r.anio_modelo)), modelo_base: r.modelo, anio_modelo: num(r.anio_modelo), mes: r.mes, precio: num(r.precio), precio_lista: num(r.precio_lista), bono: num(r.bono), fuente: r.fuente || 'Sitio oficial' }));
     return base.concat(add);
   },
 });
@@ -532,6 +535,7 @@ dash.calc('resumen_modelos', {
       const k = r.marca + '|' + r.modelo;
       if (!modelos.has(k)) modelos.set(k, { marca: r.marca, grupo: r.grupo, categoria: r.categoria, modelo: r.modelo, modelo_base: r.modelo_base ?? r.modelo, anio_modelo: r.anio_modelo ?? null, p: {} });
       if (r.anio_modelo != null) modelos.get(k).anio_modelo = r.anio_modelo;
+      if (r.mes === ult && r.fuente) modelos.get(k).fuente = r.fuente;
       modelos.get(k).p[r.mes] = Number(r.precio);
       if (r.mes === ult) modelos.get(k).b = r.bono;
     }
@@ -685,7 +689,7 @@ dash.calc('resumen', {
     const shown = P.sorted(rows.filter((r) => !P.off.has(r.marca)), 'cat');
     tb.replaceChildren(...shown.map((r) => {
       const tr = document.createElement('tr'); tr.dataset.key = P.key(r.marca, r.modelo);
-      tr.append(P.td(r.marca), P.td(r.modelo), P.td(r.anio_modelo ?? '—', 'pm-num'), P.td(P.money(r.precio_actual), 'pm-num'),
+      tr.append(P.td(r.marca), P.td(r.modelo), P.td(r.anio_modelo ?? '—', 'pm-num'), P.td(r.fuente ?? '—', 'pm-muted'), P.td(P.money(r.precio_actual), 'pm-num'),
         P.td(r.bono_actual > 0 ? P.money(r.bono_actual) : '—', 'pm-num'),
         P.td(P.pct(r.cambio_mes_pct), 'pm-num ' + P.pctClass(r.cambio_mes_pct)),
         P.td(P.money(r.precio_hace_12m), 'pm-num'),
@@ -779,7 +783,7 @@ dash.calc('resumen', {
       .filter((r) => !q || (r.marca + ' ' + r.categoria + ' ' + r.modelo).toLowerCase().includes(q));
     tb.replaceChildren(...P.sorted(rows, 'cambios').map((r) => {
       const tr = document.createElement('tr'); tr.dataset.key = P.key(r.marca, r.modelo);
-      tr.append(P.td(r.marca), P.td(r.categoria), P.td(r.modelo), P.td(r.anio_modelo ?? '—', 'pm-num'), P.td(P.money(r.precio_anterior), 'pm-num'),
+      tr.append(P.td(r.marca), P.td(r.categoria), P.td(r.modelo), P.td(r.anio_modelo ?? '—', 'pm-num'), P.td(r.fuente ?? '—', 'pm-muted'), P.td(P.money(r.precio_anterior), 'pm-num'),
         P.td(P.money(r.precio_actual), 'pm-num'), P.td(r.bono_actual > 0 ? P.money(r.bono_actual) : '—', 'pm-num'),
         P.td(P.pct(r.cambio_mes_pct), 'pm-num ' + P.pctClass(r.cambio_mes_pct)));
       return tr;
