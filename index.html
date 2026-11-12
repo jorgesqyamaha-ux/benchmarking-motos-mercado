@@ -135,6 +135,19 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
 #dash-root .pm-notes { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
 #dash-root .pm-notes dt { color: var(--color-fg); font-weight: var(--cds-font-weight-medium); margin-top: var(--cds-gap-sm); }
 #dash-root .pm-notes dd { margin: 0; }
+#dash-root .pm-range { display: flex; flex-direction: column; gap: var(--cds-gap-xs); max-width: 36rem; }
+#dash-root .pm-range-head { display: flex; align-items: center; gap: var(--cds-gap-sm); flex-wrap: wrap; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+#dash-root .pm-range-head button { font: inherit; font-size: var(--cds-font-size-caption); background: none; border: 1px solid var(--color-border-line); border-radius: 999px; padding: 2px var(--cds-pad-sm); color: var(--color-fg); cursor: pointer; }
+#dash-root .pm-range-val { font-size: var(--cds-font-size-body); font-weight: 600; font-variant-numeric: tabular-nums; }
+#dash-root .pm-range-track { position: relative; height: 24px; }
+#dash-root .pm-range-bar { position: absolute; left: 8px; right: 8px; top: 10px; height: 4px; border-radius: 2px; background: var(--color-border-line); }
+#dash-root .pm-range-fill { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+#dash-root .pm-range-track input[type=range] { position: absolute; left: 0; top: 4px; width: 100%; height: 16px; margin: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+#dash-root .pm-range-track input[type=range]::-webkit-slider-runnable-track { background: none; }
+#dash-root .pm-range-track input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 16px; height: 16px; border-radius: 50%; background: var(--color-panel); border: 2px solid var(--color-fg); cursor: grab; }
+#dash-root .pm-range-track input[type=range]::-moz-range-track { background: none; }
+#dash-root .pm-range-track input[type=range]::-moz-range-thumb { pointer-events: auto; width: 12px; height: 12px; border-radius: 50%; background: var(--color-panel); border: 2px solid var(--color-fg); cursor: grab; }
+#dash-root .pm-range-ends { display: flex; justify-content: space-between; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
 #dash-root [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
 #dash-root [data-dash-source-state=empty] { color: transparent; }
 </style>
@@ -245,6 +258,13 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
         </select>
       </label>
     </div>
+    <div class="pm-range" id="rango-precio">
+      <div class="pm-range-head">Rango de precio de la competencia (precio final actual)
+        <button type="button" class="pm-range-center">Centrar en el modelo (±20%)</button>
+        <button type="button" class="pm-range-reset">Quitar rango</button>
+      </div>
+      <div data-draw="price-range" data-source="resumen_modelos">—</div>
+    </div>
     <div class="pm-grid2">
       <div class="pm-card" id="grafica-modelo">
         <h2>Historial del modelo contra su categoría</h2>
@@ -294,6 +314,7 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
       <dt>Bono</dt><dd>Precio de lista menos precio final, cuando el sitio oficial muestra una promoción. Solo existe desde noviembre de 2026.</dd>
       <dt>Cilindrada</dt><dd>Cilindrada en cc de cada modelo. Por ahora es una tabla preliminar armada por Claude a partir de fichas técnicas conocidas; en Italika y Vento es la cilindrada nominal del nombre del modelo. Algunos modelos no tienen dato. La tarea mensual la verifica contra los sitios oficiales.</dd>
       <dt>Fuente</dt><dd>«Sitio oficial»: precio publicado por la marca en su sitio de México. «Galgo»: para KTM y Bajaj, cuyos sitios oficiales no publican precios, se usa el precio de Galgo, un marketplace de motos nuevas; es precio de distribuidor y puede variar por promoción o ubicación. Cuando Galgo vende la versión «UG» (actualizada) y la anterior al mismo tiempo, la UG se toma como 2026 y la anterior como 2025.</dd>
+      <dt>Rango de precio</dt><dd>En «Modelo vs. competencia», la barra va del precio final más bajo al más alto de la categoría del modelo elegido. Al elegir un modelo empieza en ±20% de su precio; el modelo elegido siempre aparece, y los modelos sin precio vigente se ocultan mientras el rango esté activo.</dd>
       <dt>Año modelo</dt><dd>Año de la versión publicada en el sitio oficial, desde noviembre de 2026. Si el sitio no lo indica, se toma el año en curso. Cuando una marca vende dos años de un mismo modelo, cada versión aparece por separado con su precio y su bono (por ejemplo «MT-07 2026» y «MT-07 2027»), y el historial del Excel se une a la versión más antigua. Los modelos que ya no se venden no tienen año y solo aparecen con «Todos los años».</dd>
       <dt>Marcas japonesas</dt><dd>Yamaha, Honda, Suzuki y Kawasaki. «Otras marcas» son BMW, KTM, Bajaj, Italika, Vento, CFMOTO y las marcas que se agreguen después.</dd>
       <dt>Precio vigente</dt><dd>El modelo tiene precio en el último mes con datos. Un 0 o una celda vacía en el Excel se toma como «sin precio ese mes» y la línea se corta.</dd>
@@ -711,6 +732,81 @@ dash.calc('resumen', {
     return { all: g.data, marca, deMarca, r };
   };
 
+  // ---------- Rango de precio de la competencia (pestaña modelo) ----------
+  let prMemo = null;
+  P.priceRange = () => {
+    const g0 = dash.data('resumen_modelos');
+    const sig = JSON.stringify(dash.params());
+    if (prMemo && prMemo.d === g0.data && prMemo.sig === sig) return prMemo.v;
+    let v = null;
+    const c = chosen();
+    if (c && c.r) {
+      const vals = c.all.filter((r) => r.categoria === c.r.categoria && r.precio_actual != null).map((r) => r.precio_actual);
+      if (vals.length) {
+        const step = 500;
+        const lo = Math.floor(d3.min(vals) / step) * step, hi = Math.ceil(d3.max(vals) / step) * step;
+        const clamp = (x) => Math.min(hi, Math.max(lo, x));
+        const key = c.r.marca + '|' + c.r.modelo;
+        const p = dash.params(), own = p.pkey === key, x = c.r.precio_actual;
+        if (own && p.poff) v = { lo, hi, step, a: lo, b: hi, active: false, key };
+        else if (own && p.pmin != null && p.pmax != null) v = { lo, hi, step, a: clamp(+p.pmin), b: clamp(+p.pmax), active: true, key };
+        else if (x == null) v = { lo, hi, step, a: lo, b: hi, active: false, key };
+        else v = { lo, hi, step, a: clamp(Math.floor(x * 0.8 / step) * step), b: clamp(Math.ceil(x * 1.2 / step) * step), active: true, key };
+      }
+    }
+    prMemo = { d: g0.data, sig, v };
+    return v;
+  };
+  P.priceOk = (r, sel) => {
+    const g = P.priceRange();
+    if (!g || !g.active || r === sel) return true;
+    return r.precio_actual != null && r.precio_actual >= g.a && r.precio_actual <= g.b;
+  };
+  P.paintRange = (el, a, b, active) => {
+    const span = Math.max(1, el._hi - el._lo);
+    const f = el.querySelector('.pm-range-fill');
+    f.style.left = ((a - el._lo) / span) * 100 + '%';
+    f.style.width = ((b - a) / span) * 100 + '%';
+    f.style.opacity = active ? 1 : 0.3;
+    el.querySelector('.pm-range-val').textContent = active ? P.money(a) + ' – ' + P.money(b) : 'Toda la categoría';
+  };
+  document.querySelectorAll('.pm-range-reset').forEach((b) => b.addEventListener('click', () => { const g = P.priceRange(); if (g) dash.setParams({ pkey: g.key, poff: true, pmin: null, pmax: null }); }));
+  document.querySelectorAll('.pm-range-center').forEach((b) => b.addEventListener('click', () => dash.setParams({ pkey: null, poff: null, pmin: null, pmax: null })));
+
+  dash.draw('price-range', (el) => {
+    const g = P.priceRange();
+    if (!g) { el.replaceChildren(); el.textContent = '—'; return; }
+    if (!el.querySelector('.pm-range-bar')) {
+      el.replaceChildren();
+      const val = document.createElement('div'); val.className = 'pm-range-val';
+      const track = document.createElement('div'); track.className = 'pm-range-track';
+      const bar = document.createElement('div'); bar.className = 'pm-range-bar';
+      const fill = document.createElement('div'); fill.className = 'pm-range-fill'; fill.style.background = dash.colors[0]; bar.append(fill);
+      const mk = (cls, label) => { const i = document.createElement('input'); i.type = 'range'; i.className = cls; i.setAttribute('aria-label', label); return i; };
+      const imin = mk('pm-pmin', 'Precio mínimo'), imax = mk('pm-pmax', 'Precio máximo');
+      track.append(bar, imin, imax);
+      const ends = document.createElement('div'); ends.className = 'pm-range-ends';
+      ends.append(document.createElement('span'), document.createElement('span'));
+      el.append(val, track, ends);
+      const live = (who) => {
+        if (+imin.value > +imax.value) { if (who === imin) imin.value = imax.value; else imax.value = imin.value; }
+        P.paintRange(el, +imin.value, +imax.value, true);
+      };
+      const commit = () => dash.setParams({ pkey: el._key, pmin: +imin.value, pmax: +imax.value, poff: null });
+      imin.addEventListener('input', () => live(imin));
+      imax.addEventListener('input', () => live(imax));
+      imin.addEventListener('change', commit);
+      imax.addEventListener('change', commit);
+    }
+    el._key = g.key; el._lo = g.lo; el._hi = g.hi;
+    el.querySelectorAll('input[type=range]').forEach((i) => { i.min = g.lo; i.max = g.hi; i.step = g.step; });
+    el.querySelector('.pm-pmin').value = g.a;
+    el.querySelector('.pm-pmax').value = g.b;
+    const [e1, e2] = el.querySelectorAll('.pm-range-ends span');
+    e1.textContent = P.money(g.lo); e2.textContent = P.money(g.hi);
+    P.paintRange(el, g.a, g.b, g.active);
+  });
+
   dash.draw('sel-marca2', (sel) => {
     const g = dash.data('resumen_modelos');
     if (g.status !== 'ok') { sel.replaceChildren(); return; }
@@ -737,7 +833,7 @@ dash.calc('resumen', {
     const start = P.rangeStart(idx);
     const months = idx.months.filter((d) => d >= start);
     const selKey = c.r.marca + '|' + c.r.modelo;
-    const peers = c.all.filter((r) => r.categoria === c.r.categoria && ((P.grupoOk(r) && P.ccOk(r, c.r)) || r === c.r));
+    const peers = c.all.filter((r) => r.categoria === c.r.categoria && ((P.grupoOk(r) && P.ccOk(r, c.r) && P.priceOk(r, c.r)) || r === c.r));
     const series = peers.map((r) => idx.map.get(r.marca + '|' + r.modelo))
       .filter((s) => s && s.pts.some((q) => q.d >= start))
       .map((s) => ({ ...s, label: s.modelo + ' · ' + s.marca, pts: s.pts.filter((q) => q.d >= start),
@@ -749,7 +845,7 @@ dash.calc('resumen', {
     if (!P.ready(el, ['resumen_modelos'], true)) return;
     const c = chosen();
     if (!c || !c.r) { el.replaceChildren(); return; }
-    const rows = c.all.filter((r) => r.categoria === c.r.categoria && r.precio_actual != null && ((P.grupoOk(r) && P.ccOk(r, c.r)) || r === c.r)).sort((a, b) => b.precio_actual - a.precio_actual);
+    const rows = c.all.filter((r) => r.categoria === c.r.categoria && r.precio_actual != null && ((P.grupoOk(r) && P.ccOk(r, c.r) && P.priceOk(r, c.r)) || r === c.r)).sort((a, b) => b.precio_actual - a.precio_actual);
     el.replaceChildren();
     if (!rows.length) { el.textContent = 'Ningún modelo de esta categoría tiene precio vigente'; return; }
     const W = Math.max(280, el.clientWidth), rowH = 24, H = rows.length * rowH + 8;
