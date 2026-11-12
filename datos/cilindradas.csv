@@ -6,26 +6,26 @@ BMW,Otras marcas,Electrica,CE 04,
 BMW,Otras marcas,Doble Proposito,F 750 GS,853
 BMW,Otras marcas,Doble Proposito,F 800 GS,895
 BMW,Otras marcas,Doble Proposito,F 850 GS Adventure,853
-BMW,Otras marcas,Doble Proposito,F 900 GS,
-BMW,Otras marcas,Doble Proposito,F 900 GS Adventure,
+BMW,Otras marcas,Doble Proposito,F 900 GS,895
+BMW,Otras marcas,Doble Proposito,F 900 GS Adventure,895
 BMW,Otras marcas,Deportivas,F 900 R,895
 BMW,Otras marcas,Super Deportivas,F 900 XR,895
 BMW,Otras marcas,Doble Proposito,G 310 GS,313
 BMW,Otras marcas,Deportivas,G 310 R,313
-BMW,Otras marcas,Crucero,K 1600 GT,
-BMW,Otras marcas,Crucero,K 1600 GTL,
+BMW,Otras marcas,Crucero,K 1600 GT,1649
+BMW,Otras marcas,Crucero,K 1600 GTL,1649
 BMW,Otras marcas,Super Deportivas,M 1000 R,999
-BMW,Otras marcas,Super Deportivas,M 1000 RR,
+BMW,Otras marcas,Super Deportivas,M 1000 RR,999
 BMW,Otras marcas,Super Deportivas,M 1000 XR,999
-BMW,Otras marcas,Crucero,R 12,
-BMW,Otras marcas,Doble Proposito,R 12 G/S,
+BMW,Otras marcas,Crucero,R 12,1170
+BMW,Otras marcas,Doble Proposito,R 12 G/S,1170
 BMW,Otras marcas,Doble Proposito,R 1250 GS,1254
 BMW,Otras marcas,Doble Proposito,R 1250 GSA,1254
-BMW,Otras marcas,Crucero,R 1250 RT,
-BMW,Otras marcas,Doble Proposito,R 1300 GS,
+BMW,Otras marcas,Crucero,R 1250 RT,1254
+BMW,Otras marcas,Doble Proposito,R 1300 GS,1300
 BMW,Otras marcas,Doble Proposito,R 1300 GS A,1300
-BMW,Otras marcas,Crucero,R 1300 RT,
-BMW,Otras marcas,Crucero,R 18 Roctane,
+BMW,Otras marcas,Crucero,R 1300 RT,1300
+BMW,Otras marcas,Crucero,R 18 Roctane,1802
 BMW,Otras marcas,Deportivas,R NINE T,1170
 BMW,Otras marcas,Deportivas,R NINE T PURE,1170
 BMW,Otras marcas,Deportivas,R NINE T SCRAMBLER,1170
@@ -96,11 +96,11 @@ Honda,Japonesas,Deportivas,CB1000 SP,999
 Honda,Japonesas,Street,CB190R Repsol,184
 Honda,Japonesas,Street,CB190R. 2.0,184
 Honda,Japonesas,Deportivas,CB250 Twister,249
-Honda,Japonesas,Deportivas,CB300F Twister,293
+Honda,Japonesas,Deportivas,CB300F Twister,294
 Honda,Japonesas,Crucero,CB350,348
 Honda,Japonesas,Crucero,CB350 H'NESS,348
 Honda,Japonesas,Deportivas,CB650R,649
-Honda,Japonesas,Deportivas,CB650R E-CLUTCH,
+Honda,Japonesas,Deportivas,CB650R E-CLUTCH,649
 Honda,Japonesas,Deportivas,CB750,755
 Honda,Japonesas,Deportivas,CBF125 Twister,124
 Honda,Japonesas,Trabajo,CBF150S,149
@@ -108,7 +108,7 @@ Honda,Japonesas,Deportivas,CBF160 Invicta,162
 Honda,Japonesas,Super Deportivas,CBR1000RR MAN.,999
 Honda,Japonesas,Super Deportivas,CBR1000RR R FIREBLADE.,999
 Honda,Japonesas,Deportivas,CBR500R,471
-Honda,Japonesas,Deportivas,CBR500R E-CLUTCH,
+Honda,Japonesas,Deportivas,CBR500R E-CLUTCH,471
 Honda,Japonesas,Super Deportivas,CBR600RR ABS,599
 Honda,Japonesas,Doble Proposito,CFR1100D4 Africa,1084
 Honda,Japonesas,Off Road,CFR250RX,249
@@ -122,8 +122,8 @@ Honda,Japonesas,Doble Proposito,CRF1100A AFRICA TWIN,1084
 Honda,Japonesas,Doble Proposito,CRF1100A4 AFRICA TWIN ADVENTURE SPORTS,
 Honda,Japonesas,Doble Proposito,CRF1100D,1084
 Honda,Japonesas,Off Road,CRF110F,109
-Honda,Japonesas,Off Road,CRF125F,124
-Honda,Japonesas,Off Road,CRF125FB Big Wheel,124
+Honda,Japonesas,Off Road,CRF125F,125
+Honda,Japonesas,Off Road,CRF125FB Big Wheel,125
 Honda,Japonesas,Off Road,CRF250F,249
 Honda,Japonesas,Off Road,CRF250R,249
 Honda,Japonesas,Off Road,CRF50F,49
@@ -141,11 +141,11 @@ Honda,Japonesas,Doble Proposito,NT1100A,1084
 Honda,Japonesas,Doble Proposito,NT1100D,1084
 Honda,Japonesas,Doble Proposito,NX 500,471
 Honda,Japonesas,Doble Proposito,NX190,184
-Honda,Japonesas,Doble Proposito,NX500 E-CLUTCH,
+Honda,Japonesas,Doble Proposito,NX500 E-CLUTCH,471
 Honda,Japonesas,Side By Side,PIONNER 520,518
 Honda,Japonesas,Side By Side,PIONNER 550,
 Honda,Japonesas,Crucero,Rebel 1100,1084
-Honda,Japonesas,Crucero,Rebel 1100 D3,1084
+Honda,Japonesas,Crucero,Rebel 1100 D3,1083
 Honda,Japonesas,Side By Side,TALON 10004XD,999
 Honda,Japonesas,Side By Side,TALON 1000X,999
 Honda,Japonesas,Side By Side,TALON 1000X 4,999
@@ -165,11 +165,11 @@ Honda,Japonesas,ATV,TRX520FM2,518
 Honda,Japonesas,ATV,TRX520FM6A,518
 Honda,Japonesas,ATV,TRX520FMA,518
 Honda,Japonesas,ATV,TRX680FA,675
-Honda,Japonesas,ATV,TRX700FA,686
+Honda,Japonesas,ATV,TRX700FA,675
 Honda,Japonesas,Scooter,Wave 110,109
-Honda,Japonesas,Doble Proposito,XR150LE,149
+Honda,Japonesas,Doble Proposito,XR150LE,150
 Honda,Japonesas,Doble Proposito,XR190L,184
-Honda,Japonesas,Doble Proposito,XRE300 XR300L,286
+Honda,Japonesas,Doble Proposito,XRE300 XR300L,294
 Italika,Otras marcas,Street,125Z,125
 Italika,Otras marcas,Street,125Z Grafito,
 Italika,Otras marcas,Street,150Z,150
@@ -261,7 +261,7 @@ KTM,Otras marcas,Deportivas,KTM 200 Duke,199
 KTM,Otras marcas,Doble Proposito,KTM 250 Adventure,249
 KTM,Otras marcas,Deportivas,KTM 250 Duke,249
 KTM,Otras marcas,On Off,KTM 250 SX,249
-KTM,Otras marcas,On Off,KTM 250 SX-F,249
+KTM,Otras marcas,On Off,KTM 250 SX-F,250
 KTM,Otras marcas,On Off,KTM 350 SX-F,350
 KTM,Otras marcas,Doble Proposito,KTM 390 ADVENTURE,399
 KTM,Otras marcas,Deportivas,KTM 390 Duke,399
@@ -278,11 +278,11 @@ KTM,Otras marcas,Deportivas,KTM 990 Duke,947
 KTM,Otras marcas,Super Deportivas,KTM RC200,199
 KTM,Otras marcas,Super Deportivas,KTM RC390,373
 Kawasaki,Japonesas,ATV,Brute Force 300,271
-Kawasaki,Japonesas,ATV,BRUTE FORCE 450 4x4,
+Kawasaki,Japonesas,ATV,BRUTE FORCE 450 4x4,443
 Kawasaki,Japonesas,ATV,Brute Force 750 4X4,749
 Kawasaki,Japonesas,Crucero,Eliminator ABS,451
-Kawasaki,Japonesas,Doble Proposito,KLE500 ABS,
-Kawasaki,Japonesas,Doble Proposito,KLE500 SE ABS,
+Kawasaki,Japonesas,Doble Proposito,KLE500 ABS,451
+Kawasaki,Japonesas,Doble Proposito,KLE500 SE ABS,451
 Kawasaki,Japonesas,Doble Proposito,KLR650,652
 Kawasaki,Japonesas,Doble Proposito,KLX110 L,112
 Kawasaki,Japonesas,Doble Proposito,KLX110 R,112
@@ -290,7 +290,7 @@ Kawasaki,Japonesas,Doble Proposito,KLX140 R,144
 Kawasaki,Japonesas,Doble Proposito,KLX230R,233
 Kawasaki,Japonesas,Doble Proposito,KLX300,292
 Kawasaki,Japonesas,Doble Proposito,KLX300 R,292
-Kawasaki,Japonesas,Off Road,KLX300R,
+Kawasaki,Japonesas,Off Road,KLX300R,292
 Kawasaki,Japonesas,Off Road,KX112,112
 Kawasaki,Japonesas,Off Road,KX250,249
 Kawasaki,Japonesas,Off Road,KX250X,249
@@ -300,21 +300,21 @@ Kawasaki,Japonesas,Off Road,KX65,64
 Kawasaki,Japonesas,Off Road,KX85,84
 Kawasaki,Japonesas,Off Road,KX85L,84
 Kawasaki,Japonesas,Super Deportivas,Ninja 1100 SX,1099
-Kawasaki,Japonesas,Super Deportivas,NINJA 1100SX SE ABS,
-Kawasaki,Japonesas,Super Deportivas,NINJA 300 ABS,
+Kawasaki,Japonesas,Super Deportivas,NINJA 1100SX SE ABS,1099
+Kawasaki,Japonesas,Super Deportivas,NINJA 300 ABS,296
 Kawasaki,Japonesas,Super Deportivas,Ninja 400 ABS,399
 Kawasaki,Japonesas,Super Deportivas,Ninja 500 ABS,451
-Kawasaki,Japonesas,Super Deportivas,NINJA 500 SE ABS,
-Kawasaki,Japonesas,Super Deportivas,NINJA 650,
+Kawasaki,Japonesas,Super Deportivas,NINJA 500 SE ABS,451
+Kawasaki,Japonesas,Super Deportivas,NINJA 650,649
 Kawasaki,Japonesas,Super Deportivas,Ninja 650 ABS,649
 Kawasaki,Japonesas,Super Deportivas,Ninja H2 ABS,998
-Kawasaki,Japonesas,Super Deportivas,NINJA H2 CARBON ABS,
-Kawasaki,Japonesas,Super Deportivas,NINJA H2 SX SE ABS,
-Kawasaki,Japonesas,Super Deportivas,NINJA H2R ABS,
+Kawasaki,Japonesas,Super Deportivas,NINJA H2 CARBON ABS,998
+Kawasaki,Japonesas,Super Deportivas,NINJA H2 SX SE ABS,998
+Kawasaki,Japonesas,Super Deportivas,NINJA H2R ABS,998
 Kawasaki,Japonesas,Super Deportivas,Ninja ZX-10R ABS,998
 Kawasaki,Japonesas,Super Deportivas,NINJA ZX-10R KRT EDITION,
 Kawasaki,Japonesas,Super Deportivas,Ninja ZX-14R,1441
-Kawasaki,Japonesas,Super Deportivas,NINJA ZX-4R ABS,
+Kawasaki,Japonesas,Super Deportivas,NINJA ZX-4R ABS,399
 Kawasaki,Japonesas,Super Deportivas,NINJA ZX-4RR ABS,399
 Kawasaki,Japonesas,Super Deportivas,Ninja ZX-6R ABS,636
 Kawasaki,Japonesas,Side By Side,TERYX 4 H2,999
@@ -324,31 +324,31 @@ Kawasaki,Japonesas,Side By Side,TERYX KRX4 1000,999
 Kawasaki,Japonesas,Doble Proposito,Versys 1000 SE,1043
 Kawasaki,Japonesas,Doble Proposito,Versys 650 ABS,649
 Kawasaki,Japonesas,Doble Proposito,Versys-X 300,296
-Kawasaki,Japonesas,Doble Proposito,VERSYS-X 300 TOURING ABS,
+Kawasaki,Japonesas,Doble Proposito,VERSYS-X 300 TOURING ABS,296
 Kawasaki,Japonesas,Crucero,Vulcan 900 Classic,903
 Kawasaki,Japonesas,Crucero,Vulcan 900 Custom,903
-Kawasaki,Japonesas,Crucero,VULCAN S,
-Kawasaki,Japonesas,Street,W175 LTD,
+Kawasaki,Japonesas,Crucero,VULCAN S,649
+Kawasaki,Japonesas,Street,W175 LTD,177
 Kawasaki,Japonesas,Deportivas,Z H2,998
-Kawasaki,Japonesas,Deportivas,Z1100 SE ABS,
+Kawasaki,Japonesas,Deportivas,Z1100 SE ABS,1099
 Kawasaki,Japonesas,Deportivas,Z400 ABS,399
 Kawasaki,Japonesas,Deportivas,Z500 ABS,451
 Kawasaki,Japonesas,Deportivas,Z500 SE ABS,451
 Kawasaki,Japonesas,Deportivas,Z650 ABS,649
-Kawasaki,Japonesas,Deportivas,Z650 S ABS,
+Kawasaki,Japonesas,Deportivas,Z650 S ABS,649
 Kawasaki,Japonesas,Deportivas,Z650RS,649
-Kawasaki,Japonesas,Deportivas,Z650RS BLACK BALL EDITION ABS,
-Kawasaki,Japonesas,Deportivas,Z900 ABS,
+Kawasaki,Japonesas,Deportivas,Z650RS BLACK BALL EDITION ABS,649
+Kawasaki,Japonesas,Deportivas,Z900 ABS,948
 Kawasaki,Japonesas,Deportivas,Z900 RS,948
 Kawasaki,Japonesas,Deportivas,Z900 SE,948
 Kawasaki,Japonesas,Deportivas,Z900RS CAFE ABS,
-Suzuki,Japonesas,Scooter,Avenis 125,125
+Suzuki,Japonesas,Scooter,Avenis 125,124
 Suzuki,Japonesas,Trabajo,AX4 (GD115),115
 Suzuki,Japonesas,Scooter,Burgman 125,125
 Suzuki,Japonesas,Scooter,Burgman 400,400
 Suzuki,Japonesas,Crucero,C50 BOULEVARD,805
 Suzuki,Japonesas,Doble Proposito,DR150,150
-Suzuki,Japonesas,Doble Proposito,DR160,155
+Suzuki,Japonesas,Doble Proposito,DR160,162
 Suzuki,Japonesas,Doble Proposito,DR650,644
 Suzuki,Japonesas,Street,EN125-2A,125
 Suzuki,Japonesas,Deportivas,Gixxer 150,155
@@ -365,7 +365,7 @@ Suzuki,Japonesas,Super Deportivas,GSX-R600,599
 Suzuki,Japonesas,Super Deportivas,GSX-R750,750
 Suzuki,Japonesas,Deportivas,GSX-S750 ABS,749
 Suzuki,Japonesas,Super Deportivas,HAYABUSA,1340
-Suzuki,Japonesas,Trabajo,HURACAN,
+Suzuki,Japonesas,Trabajo,HURACAN,124
 Suzuki,Japonesas,Deportivas,Intruder,
 Suzuki,Japonesas,Deportivas,Katana,999
 Suzuki,Japonesas,ATV,KINGQUAD 400,376
@@ -457,7 +457,7 @@ Vento,Otras marcas,Trabajo,Xpress170,170
 Vento,Otras marcas,ATV,Yuma 250,250
 Yamaha,Japonesas,Scooter,Alpha,113
 Yamaha,Japonesas,Trabajo,Crypton T110,110
-Yamaha,Japonesas,Trabajo,Crypton T115 FI,115
+Yamaha,Japonesas,Trabajo,Crypton T115 FI,114
 Yamaha,Japonesas,Scooter,Fascino,125
 Yamaha,Japonesas,Street,FAZER,149
 Yamaha,Japonesas,Street,FZ V.3.0 (FZN150),149
@@ -473,17 +473,17 @@ Yamaha,Japonesas,Deportivas,MT-03,321
 Yamaha,Japonesas,Deportivas,MT-07,689
 Yamaha,Japonesas,Deportivas,MT-09,890
 Yamaha,Japonesas,Deportivas,MT-15,155
-Yamaha,Japonesas,Scooter,N-MAX TECH MAX,
+Yamaha,Japonesas,Scooter,N-MAX TECH MAX,155
 Yamaha,Japonesas,Scooter,NMAX,155
 Yamaha,Japonesas,Off Road,PW50,49
-Yamaha,Japonesas,ATV,Raptor 110R,110
+Yamaha,Japonesas,ATV,Raptor 110R,112
 Yamaha,Japonesas,ATV,Raptor 90R,90
 Yamaha,Japonesas,Scooter,Ray ZR,113
 Yamaha,Japonesas,Scooter,Ray ZR FI 125,125
 Yamaha,Japonesas,Street,SZ-RR,149
-Yamaha,Japonesas,Scooter,T-MAX TECH MAX,
+Yamaha,Japonesas,Scooter,T-MAX TECH MAX,562
 Yamaha,Japonesas,Deportivas,TRACER 9 GT,890
-Yamaha,Japonesas,Scooter,X-MAX TECH MAX,
+Yamaha,Japonesas,Scooter,X-MAX TECH MAX,292
 Yamaha,Japonesas,Scooter,XMAX,292
 Yamaha,Japonesas,Deportivas,XSR900 GP,890
 Yamaha,Japonesas,Doble Proposito,XT1200Z,1199
@@ -494,12 +494,12 @@ Yamaha,Japonesas,Doble Proposito,XTZ250,249
 Yamaha,Japonesas,Trabajo,YB125,125
 Yamaha,Japonesas,Street,YB125ZR,125
 Yamaha,Japonesas,Trabajo,YBR125C,124
-Yamaha,Japonesas,Doble Proposito,YBR125EG,124
+Yamaha,Japonesas,Doble Proposito,YBR125EG,123
 Yamaha,Japonesas,ATV,YFM700G Grizzly EPS SE,
 Yamaha,Japonesas,Scooter,YW125FI,125
-Yamaha,Japonesas,Off Road,YZ 125 70 Aniversario,
-Yamaha,Japonesas,Off Road,YZ 250 F 70 Aniversario,
-Yamaha,Japonesas,Off Road,YZ 450 F 70 Aniversario,
+Yamaha,Japonesas,Off Road,YZ 125 70 Aniversario,125
+Yamaha,Japonesas,Off Road,YZ 250 F 70 Aniversario,250
+Yamaha,Japonesas,Off Road,YZ 450 F 70 Aniversario,450
 Yamaha,Japonesas,Off Road,YZ125,125
 Yamaha,Japonesas,Off Road,YZ250F,250
 Yamaha,Japonesas,Off Road,YZ250FX,250
